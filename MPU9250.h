@@ -225,11 +225,17 @@ class MPU9250{
 
         const uint8_t AK8963_WHO_AM_I = 0x00;
 
-        // transformation matrix
-        /* transform the accel and gyro axes to match the magnetometer axes */
-        const int16_t tX[3] = {0,  1,  0};
-        const int16_t tY[3] = {1,  0,  0};
-        const int16_t tZ[3] = {0,  0, -1};
+        // // transformation matrix
+        // /* transform the accel and gyro axes to match the magnetometer axes */
+        // const int16_t tX[3] = {0,  1,  0};
+        // const int16_t tY[3] = {1,  0,  0};
+        // const int16_t tZ[3] = {0,  0, -1};
+
+        // HACK: get acc and gyro data in ordinary frame
+        // NB: This does not transform mag data.
+        const int16_t tX[3] = {1,  0,  0};
+        const int16_t tY[3] = {0,  1,  0};
+        const int16_t tZ[3] = {0,  0,  1};
 
         bool writeRegister(uint8_t subAddress, uint8_t data);
         void readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest);
