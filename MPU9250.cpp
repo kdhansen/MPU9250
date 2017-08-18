@@ -6,23 +6,23 @@ brian.taylor@bolderflight.com
 
 Copyright (c) 2016 Bolder Flight Systems
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
-and associated documentation files (the "Software"), to deal in the Software without restriction, 
-including without limitation the rights to use, copy, modify, merge, publish, distribute, 
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+and associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or 
+The above copyright notice and this permission notice shall be included in all copies or
 substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
 BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC
 #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
 	defined(__MK66FX1M0__) || defined(__MKL26Z64__)
 
@@ -110,7 +110,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 
         #endif
 
-        // Teensy 3.5 || Teensy 3.6 
+        // Teensy 3.5 || Teensy 3.6
 		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	        // configure and begin the SPI
@@ -162,7 +162,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 
         #endif
 
-        // Teensy LC 
+        // Teensy LC
 		#if defined(__MKL26Z64__)
 
 			// configure and begin the SPI
@@ -412,13 +412,13 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
     readAK8963Registers(AK8963_ASA,sizeof(buff),&buff[0]);
     _magScaleX = ((((float)buff[0]) - 128.0f)/(256.0f) + 1.0f) * 4912.0f / 32760.0f; // micro Tesla
     _magScaleY = ((((float)buff[1]) - 128.0f)/(256.0f) + 1.0f) * 4912.0f / 32760.0f; // micro Tesla
-    _magScaleZ = ((((float)buff[2]) - 128.0f)/(256.0f) + 1.0f) * 4912.0f / 32760.0f; // micro Tesla 
+    _magScaleZ = ((((float)buff[2]) - 128.0f)/(256.0f) + 1.0f) * 4912.0f / 32760.0f; // micro Tesla
 
     // set AK8963 to Power Down
     if( !writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) ){
         return -1;
     }
-    delay(100); // long wait between AK8963 mode changes  
+    delay(100); // long wait between AK8963 mode changes
 
     // set AK8963 to 16 bit resolution, 100 Hz update rate
     if( !writeAK8963Register(AK8963_CNTL1,AK8963_CNT_MEAS2) ){
@@ -429,7 +429,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
     // select clock source to gyro
     if( !writeRegister(PWR_MGMNT_1,CLOCK_SEL_PLL) ){
         return -1;
-    }       
+    }
 
     // instruct the MPU9250 to get 7 bytes of data from the AK8963 at the sample rate
     readAK8963Registers(AK8963_HXL,sizeof(data),&data[0]);
@@ -447,7 +447,7 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
         case DLPF_BANDWIDTH_184HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_184) ){ // setting accel bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_184) ){ // setting gyro bandwidth to 184Hz
                 return -1;
             }
@@ -456,25 +456,25 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
         case DLPF_BANDWIDTH_92HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_92) ){ // setting accel bandwidth to 92Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_92) ){ // setting gyro bandwidth to 92Hz
                 return -1;
             }
-            break; 
+            break;
 
         case DLPF_BANDWIDTH_41HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_41) ){ // setting accel bandwidth to 41Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_41) ){ // setting gyro bandwidth to 41Hz
                 return -1;
-            } 
+            }
             break;
 
         case DLPF_BANDWIDTH_20HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_20) ){ // setting accel bandwidth to 20Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_20) ){ // setting gyro bandwidth to 20Hz
                 return -1;
             }
@@ -483,7 +483,7 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
         case DLPF_BANDWIDTH_10HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_10) ){ // setting accel bandwidth to 10Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_10) ){ // setting gyro bandwidth to 10Hz
                 return -1;
             }
@@ -492,17 +492,17 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
         case DLPF_BANDWIDTH_5HZ:
             if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_5) ){ // setting accel bandwidth to 5Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_5) ){ // setting gyro bandwidth to 5Hz
                 return -1;
             }
-            break; 
+            break;
     }
 
     /* setting the sample rate divider */
     if( !writeRegister(SMPDIV,SRD) ){ // setting the sample rate divider
         return -1;
-    } 
+    }
 
     if(SRD > 9){
 
@@ -510,13 +510,13 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
         if( !writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) ){
             return -1;
         }
-        delay(100); // long wait between AK8963 mode changes  
+        delay(100); // long wait between AK8963 mode changes
 
         // set AK8963 to 16 bit resolution, 8 Hz update rate
         if( !writeAK8963Register(AK8963_CNTL1,AK8963_CNT_MEAS1) ){
             return -1;
         }
-        delay(100); // long wait between AK8963 mode changes     
+        delay(100); // long wait between AK8963 mode changes
 
         // instruct the MPU9250 to get 7 bytes of data from the AK8963 at the sample rate
         readAK8963Registers(AK8963_HXL,sizeof(data),&data[0]);
@@ -525,13 +525,13 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
     /* setting the interrupt */
     if( !writeRegister(INT_PIN_CFG,INT_PULSE_50US) ){ // setup interrupt, 50 us pulse
         return -1;
-    }  
+    }
     if( !writeRegister(INT_ENABLE,INT_RAW_RDY_EN) ){ // set to data ready
         return -1;
-    }  
+    }
 
     // successful filter setup, return 0
-    return 0; 
+    return 0;
 }
 
 /* enables and disables the interrupt */
@@ -541,19 +541,19 @@ int MPU9250::enableInt(bool enable){
 		/* setting the interrupt */
 	    if( !writeRegister(INT_PIN_CFG,INT_PULSE_50US) ){ // setup interrupt, 50 us pulse
 	        return -1;
-	    }  
+	    }
 	    if( !writeRegister(INT_ENABLE,INT_RAW_RDY_EN) ){ // set to data ready
 	        return -1;
-	    }  
+	    }
 	}
 	else{
 	    if( !writeRegister(INT_ENABLE,INT_DISABLE) ){ // disable interrupt
 	        return -1;
-	    }  
+	    }
 	}
 
     // successful interrupt setup, return 0
-    return 0; 
+    return 0;
 }
 
 
@@ -627,7 +627,7 @@ void MPU9250::getMagCounts(int16_t* hx, int16_t* hy, int16_t* hz){
         *hz = (((int16_t)buff[5]) << 8) | buff[4];
     }
     else{
-        *hx = 0;  
+        *hx = 0;
         *hy = 0;
         *hz = 0;
     }
@@ -747,7 +747,7 @@ void MPU9250::getMotion7(float* ax, float* ay, float* az, float* gx, float* gy, 
     *gy = ((float) gyro[1]) * _gyroScale;
     *gz = ((float) gyro[2]) * _gyroScale;
 
-    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset; 
+    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset;
 }
 
 /* get accelerometer, gyro and magnetometer data given pointers to store values, return data as counts */
@@ -766,7 +766,7 @@ void MPU9250::getMotion9Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* g
     gyy = (((int16_t)buff[10]) << 8) | buff[11];
     gzz = (((int16_t)buff[12]) << 8) | buff[13];
 
-    *hx = (((int16_t)buff[15]) << 8) | buff[14];  
+    *hx = (((int16_t)buff[15]) << 8) | buff[14];
     *hy = (((int16_t)buff[17]) << 8) | buff[16];
     *hz = (((int16_t)buff[19]) << 8) | buff[18];
 
@@ -851,7 +851,7 @@ void MPU9250::getMotion10(float* ax, float* ay, float* az, float* gx, float* gy,
     *hy = ((float) mag[1]) * _magScaleY;
     *hz = ((float) mag[2]) * _magScaleZ;
 
-    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset; 
+    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset;
 }
 
 /* writes a byte to MPU9250 register given a register address and data */
@@ -875,7 +875,7 @@ bool MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 
     	#endif
 
-        // Teensy 3.5 || Teensy 3.6 
+        // Teensy 3.5 || Teensy 3.6
 		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)||(_mosiPin == MOSI_PIN_28)){
@@ -900,12 +900,12 @@ bool MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 		        SPI2.transfer(subAddress); // write the register address
 		        SPI2.transfer(data); // write the data
 		        digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
-		        SPI2.endTransaction(); // end the transaction	
+		        SPI2.endTransaction(); // end the transaction
 	    	}
 
     	#endif
 
-        // Teensy LC 
+        // Teensy LC
 		#if defined(__MKL26Z64__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)){
@@ -983,7 +983,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
 
     	#endif
 
-        // Teensy 3.5 || Teensy 3.6 
+        // Teensy 3.5 || Teensy 3.6
 		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)||(_mosiPin == MOSI_PIN_28)){
@@ -1001,7 +1001,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 delayMicroseconds(1);
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
-                
+
                 SPI.transfer(subAddress | SPI_READ); // specify the starting register address
 
 		        for(uint8_t i = 0; i < count; i++){
@@ -1026,7 +1026,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 delayMicroseconds(1);
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
-                
+
                 SPI1.transfer(subAddress | SPI_READ); // specify the starting register address
 
 		        for(uint8_t i = 0; i < count; i++){
@@ -1051,7 +1051,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 delayMicroseconds(1);
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
-                
+
                 SPI2.transfer(subAddress | SPI_READ); // specify the starting register address
 
 		        for(uint8_t i = 0; i < count; i++){
@@ -1064,7 +1064,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
 
     	#endif
 
-        // Teensy LC 
+        // Teensy LC
 		#if defined(__MKL26Z64__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)){
@@ -1082,7 +1082,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 delayMicroseconds(1);
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
-                
+
                 SPI.transfer(subAddress | SPI_READ); // specify the starting register address
 
 		        for(uint8_t i = 0; i < count; i++){
@@ -1107,7 +1107,7 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
                 digitalWriteFast(_csPin,HIGH); // deselect the MPU9250 chip
                 delayMicroseconds(1);
                 digitalWriteFast(_csPin,LOW); // select the MPU9250 chip
-                
+
                 SPI1.transfer(subAddress | SPI_READ); // specify the starting register address
 
 		        for(uint8_t i = 0; i < count; i++){
