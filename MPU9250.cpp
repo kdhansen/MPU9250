@@ -438,6 +438,81 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
     return 0;
 }
 
+#define MPU9250_RA_XA_OFFS_H        0x77 //[15:0] XA_OFFS
+#define MPU9250_RA_XA_OFFS_L_TC     0x78
+#define MPU9250_RA_YA_OFFS_H        0x7A //[15:0] YA_OFFS
+#define MPU9250_RA_YA_OFFS_L_TC     0x7B
+#define MPU9250_RA_ZA_OFFS_H        0x7D //[15:0] ZA_OFFS
+#define MPU9250_RA_ZA_OFFS_L_TC     0x7E
+
+#define MPU9250_RA_XG_OFFS_USRH     0x13 //[15:0] XG_OFFS_USR
+#define MPU9250_RA_XG_OFFS_USRL     0x14
+#define MPU9250_RA_YG_OFFS_USRH     0x15 //[15:0] YG_OFFS_USR
+#define MPU9250_RA_YG_OFFS_USRL     0x16
+#define MPU9250_RA_ZG_OFFS_USRH     0x17 //[15:0] ZG_OFFS_USR
+#define MPU9250_RA_ZG_OFFS_USRL     0x18
+
+void MPU9250::getOffsets(int16_t* offsets) {
+    uint8_t buffer[2];
+    int16_t *p = offsets;
+    
+    readRegisters( MPU9250_RA_XA_OFFS_H, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);
+
+    readRegisters( MPU9250_RA_YA_OFFS_H, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);
+
+    readRegisters( MPU9250_RA_ZA_OFFS_H, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);
+
+    readRegisters( MPU9250_RA_XG_OFFS_USRH, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);
+
+    readRegisters( MPU9250_RA_YG_OFFS_USRH, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);
+
+    readRegisters( MPU9250_RA_ZG_OFFS_USRH, 2, buffer );
+    *p++ = ((((int16_t)buffer[0]) << 8) | buffer[1]);    
+}
+/* sets accel and gyro offsets */
+void MPU9250::setOffsets(int16_t* offsets) {
+    uint8_t bit0;
+    int16_t value;
+    int16_t *p = offsets;
+
+// For ax, ay, and az offsets bit 0 should be preserved
+// due to temperature compensation something
+//ax    
+    readRegisters( MPU9250_RA_XA_OFFS_L_TC, 1, &bit0 );
+    bit0 &= 1;
+    value = (*p++ & 0xFFFE) | bit0;
+    writeRegister( MPU9250_RA_XA_OFFS_H, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_XA_OFFS_L_TC, (uint8_t) value&0xFF );
+//ay    
+    readRegisters( MPU9250_RA_YA_OFFS_L_TC, 1, &bit0 );
+    bit0 &= 1;
+    value = (*p++ & 0xFFFE) | bit0;
+    writeRegister( MPU9250_RA_YA_OFFS_H, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_YA_OFFS_L_TC, (uint8_t) value&0xFF );
+//az    
+    readRegisters( MPU9250_RA_ZA_OFFS_L_TC, 1, &bit0 );
+    bit0 &= 1;
+    value = (*p++ & 0xFFFE) | bit0;
+    writeRegister( MPU9250_RA_ZA_OFFS_H, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_ZA_OFFS_L_TC, (uint8_t) value&0xFF );
+//gx
+    value = *p++;
+    writeRegister( MPU9250_RA_XG_OFFS_USRH, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_XG_OFFS_USRL, (uint8_t) value&0xFF );
+//gy
+    value = *p++;
+    writeRegister( MPU9250_RA_YG_OFFS_USRH, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_YG_OFFS_USRL, (uint8_t) value&0xFF );
+//gz
+    value = *p++;
+    writeRegister( MPU9250_RA_ZG_OFFS_USRH, (uint8_t) (value>>8)&0xFF );
+    writeRegister( MPU9250_RA_ZG_OFFS_USRL, (uint8_t) value&0xFF );
+}
 
 /* sets the DLPF and interrupt settings */
 int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){

@@ -117,7 +117,9 @@ class MPU9250{
         void getMotion7Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* t);
         void getMotion9Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* hx, int16_t* hy, int16_t* hz);
         void getMotion10Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* hx, int16_t* hy, int16_t* hz, int16_t* t);
-    private:
+        void setOffsets(int16_t* offsets);
+        void getOffsets(int16_t* offsets);
+      private:
         uint8_t _address;
         uint8_t _bus;
         i2c_pins _pins;
