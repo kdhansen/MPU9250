@@ -27,7 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 	defined(__MK66FX1M0__) || defined(__MKL26Z64__)
 
 #include "Arduino.h"
-#include "MPU9250.h"
+#include "MPU9250_t3.h"
 #include "i2c_t3.h"  // I2C library
 #include "SPI.h" // SPI Library
 
