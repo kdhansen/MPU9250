@@ -76,10 +76,13 @@ MPU9250::MPU9250(uint8_t csPin, spi_mosi_pin pin){
 }
 
 /* starts I2C communication and sets up the MPU-9250 */
-int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange){
+int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange, float regionalMagDeclination){
     uint8_t buff[3];
     uint8_t data[7];
-
+    
+    _tm_loaded = false; // magnetometer transportation matrix not loaded
+    _tm_scaler = false;
+    
     if( _useSPI ){ // using SPI for communication
 
         // setting CS pin to output
@@ -263,6 +266,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 
         // starting the I2C bus
         i2c_t3(_bus).begin(I2C_MASTER, 0, _pins, _pullups, _i2cRate);
+        i2c_t3(_bus).setDefaultTimeout(10000);
     }
 
     // select clock source to gyro
@@ -293,7 +297,8 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 
     // reset the AK8963
     writeAK8963Register(AK8963_CNTL2,AK8963_RESET);
-
+	delay(10);
+	
     // select clock source to gyro
     if( !writeRegister(PWR_MGMNT_1,CLOCK_SEL_PLL) ){
         return -1;
@@ -317,7 +322,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(ACCEL_CONFIG,ACCEL_FS_SEL_2G) ){
                 return -1;
             }
-            _accelScale = G * 2.0f/32767.5f; // setting the accel scale to 2G
+            _accelScale = 2.0f/32767.5f; //* G; // setting the accel scale to 2G
             break;
 
         case ACCEL_RANGE_4G:
@@ -325,7 +330,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(ACCEL_CONFIG,ACCEL_FS_SEL_4G) ){
                 return -1;
             }
-            _accelScale = G * 4.0f/32767.5f; // setting the accel scale to 4G
+            _accelScale = 4.0f/32767.5f; //* G; ; // setting the accel scale to 4G
             break;
 
         case ACCEL_RANGE_8G:
@@ -333,7 +338,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(ACCEL_CONFIG,ACCEL_FS_SEL_8G) ){
                 return -1;
             }
-            _accelScale = G * 8.0f/32767.5f; // setting the accel scale to 8G
+            _accelScale = 8.0f/32767.5f; //* G; ; // setting the accel scale to 8G
             break;
 
         case ACCEL_RANGE_16G:
@@ -341,7 +346,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(ACCEL_CONFIG,ACCEL_FS_SEL_16G) ){
                 return -1;
             }
-            _accelScale = G * 16.0f/32767.5f; // setting the accel scale to 16G
+            _accelScale = 16.0f/32767.5f; //* G; ; // setting the accel scale to 16G
             break;
     }
 
@@ -351,7 +356,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(GYRO_CONFIG,GYRO_FS_SEL_250DPS) ){
                 return -1;
             }
-            _gyroScale = 250.0f/32767.5f * _d2r; // setting the gyro scale to 250DPS
+            _gyroScale = 250.0f/32767.5f;// * _d2r; // setting the gyro scale to 250DPS
             break;
 
         case GYRO_RANGE_500DPS:
@@ -359,7 +364,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(GYRO_CONFIG,GYRO_FS_SEL_500DPS) ){
                 return -1;
             }
-            _gyroScale = 500.0f/32767.5f * _d2r; // setting the gyro scale to 500DPS
+            _gyroScale = 500.0f/32767.5f;// * _d2r; // setting the gyro scale to 500DPS
             break;
 
         case GYRO_RANGE_1000DPS:
@@ -367,7 +372,7 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(GYRO_CONFIG,GYRO_FS_SEL_1000DPS) ){
                 return -1;
             }
-            _gyroScale = 1000.0f/32767.5f * _d2r; // setting the gyro scale to 1000DPS
+            _gyroScale = 1000.0f/32767.5f;// * _d2r; // setting the gyro scale to 1000DPS
             break;
 
         case GYRO_RANGE_2000DPS:
@@ -375,10 +380,13 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             if( !writeRegister(GYRO_CONFIG,GYRO_FS_SEL_2000DPS) ){
                 return -1;
             }
-            _gyroScale = 2000.0f/32767.5f * _d2r; // setting the gyro scale to 2000DPS
+            _gyroScale = 2000.0f/32767.5f;// * _d2r; // setting the gyro scale to 2000DPS
             break;
     }
 
+    // set regional magnetic declination
+    mag_declination = regionalMagDeclination;
+    
     // enable I2C master mode
     if( !writeRegister(USER_CTRL,I2C_MST_EN) ){
     	return -1;
@@ -431,11 +439,51 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
         return -1;
     }
 
+    
+ // Configure Gyro and Thermometer
+ // Disable FSYNC and set thermometer and gyro bandwidth to 41 and 42 Hz, respectively; 
+ // minimum delay time for this setting is 5.9 ms, which means sensor fusion update rates cannot
+ // be higher than 1 / 0.0059 = 170 Hz
+ // DLPF_CFG = bits 2:0 = 011; this limits the sample rate to 1000 Hz for both
+ // With the MPU9250, it is possible to get gyro sample rates of 32 kHz (!), 8 kHz, or 1 kHz
+    // if( !writeRegister(CONFIG, 0x03) ) {
+        // return -1;
+    // }
+    
+ // Set sample rate = gyroscope output rate/(1 + SMPLRT_DIV)
+ // Use a 200 Hz rate; a rate consistent with the filter update rate 
+ // determined inset in CONFIG above
+    // if( !writeRegister(SMPDIV, 0x04) ) {
+        // return -1;
+    // }
+    
+    
+  // Configure Interrupts and Bypass Enable
+  // Set interrupt pin active high, push-pull, hold interrupt pin level HIGH until interrupt cleared,
+  // clear on read of INT_STATUS, and do not enable I2C_BYPASS_EN so additional chips 
+  // can join the I2C bus and all can be controlled by the Arduino as master
+    // if( !writeRegister(INT_PIN_CFG, 0x20) ) {
+        // return -1;
+    // }
+    
+   // Enable data ready (bit 0) interrupt
+    // if( !writeRegister(INT_ENABLE, 0x01) ) {
+        // return -1;
+    // }
+    // delay(100);
+    
     // instruct the MPU9250 to get 7 bytes of data from the AK8963 at the sample rate
     readAK8963Registers(AK8963_HXL,sizeof(data),&data[0]);
 
     // successful init, return 0
     return 0;
+}
+
+bool MPU9250::isAccelGyroDataReady() {
+    uint8_t buffer;
+    // if ( i2c_t3(_bus).status() == I2C_TIMEOUT ) i2c_t3(_bus).resetBus_(_bus);
+    readRegisters( INT_STATUS, 1, &buffer );
+    return (buffer & 0x01);
 }
 
 #define MPU9250_RA_XA_OFFS_H        0x77 //[15:0] XA_OFFS
@@ -512,6 +560,27 @@ void MPU9250::setOffsets(int16_t* offsets) {
     value = *p++;
     writeRegister( MPU9250_RA_ZG_OFFS_USRH, (uint8_t) (value>>8)&0xFF );
     writeRegister( MPU9250_RA_ZG_OFFS_USRL, (uint8_t) value&0xFF );
+}
+
+
+void MPU9250::setMagTMandBias(float* matrix, float* bias) {
+    float* p = matrix;
+    
+    for (int i=0; i<3; i++)
+        for (int j=0; j<3; j++)
+            mag_tm[i*3+j] = *(p+(i*3+j));
+    
+    p = bias;
+    for (int i=0; i<3; i++) 
+        mag_bias[i] = *p++;
+
+    _tm_loaded = true;   
+}
+
+void MPU9250::setTransformMatrix(int16_t **tm) {
+    for (int i=0; i<3; i++)
+        for (int j=0; j<3; j++)
+            tM[i][j] = tm[i][j];
 }
 
 /* sets the DLPF and interrupt settings */
@@ -598,7 +667,7 @@ int MPU9250::setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD){
     }
 
     /* setting the interrupt */
-    if( !writeRegister(INT_PIN_CFG,INT_PULSE_50US) ){ // setup interrupt, 50 us pulse
+    if( !writeRegister(INT_PIN_CFG,INT_PULSE_READ) ){ // setup interrupt, high until read
         return -1;
     }
     if( !writeRegister(INT_ENABLE,INT_RAW_RDY_EN) ){ // set to data ready
@@ -644,9 +713,9 @@ void MPU9250::getAccelCounts(int16_t* ax, int16_t* ay, int16_t* az){
     ayy = (((int16_t)buff[2]) << 8) | buff[3];
     azz = (((int16_t)buff[4]) << 8) | buff[5];
 
-    *ax = tX[0]*axx + tX[1]*ayy + tX[2]*azz; // transform axes
-    *ay = tY[0]*axx + tY[1]*ayy + tY[2]*azz;
-    *az = tZ[0]*axx + tZ[1]*ayy + tZ[2]*azz;
+    *ax = tM[0][0]*axx + tM[0][1]*ayy + tM[0][2]*azz; // transform axes
+    *ay = tM[1][0]*axx + tM[1][1]*ayy + tM[1][2]*azz;
+    *az = tM[2][0]*axx + tM[2][1]*ayy + tM[2][2]*azz;
 }
 
 /* get accelerometer data given pointers to store the three values */
@@ -672,18 +741,18 @@ void MPU9250::getGyroCounts(int16_t* gx, int16_t* gy, int16_t* gz){
     gyy = (((int16_t)buff[2]) << 8) | buff[3];
     gzz = (((int16_t)buff[4]) << 8) | buff[5];
 
-    *gx = tX[0]*gxx + tX[1]*gyy + tX[2]*gzz; // transform axes
-    *gy = tY[0]*gxx + tY[1]*gyy + tY[2]*gzz;
-    *gz = tZ[0]*gxx + tZ[1]*gyy + tZ[2]*gzz;
+    *gx = tM[0][0]*gxx + tM[0][1]*gyy + tM[0][2]*gzz; // transform axes
+    *gy = tM[1][0]*gxx + tM[1][1]*gyy + tM[1][2]*gzz;
+    *gz = tM[2][0]*gxx + tM[2][1]*gyy + tM[2][2]*gzz;
 }
 
-/* get gyro data given pointers to store the three values */
+/* get gyro data given pointers to store the three values. In DPS */
 void MPU9250::getGyro(float* gx, float* gy, float* gz){
     int16_t gyro[3];
 
     getGyroCounts(&gyro[0], &gyro[1], &gyro[2]);
 
-    *gx = ((float) gyro[0]) * _gyroScale; // typecast and scale to values
+    *gx = ((float) gyro[0]) * _gyroScale; // typecast and scale to DPS values
     *gy = ((float) gyro[1]) * _gyroScale;
     *gz = ((float) gyro[2]) * _gyroScale;
 }
@@ -717,7 +786,31 @@ void MPU9250::getMag(float* hx, float* hy, float* hz){
     *hx = ((float) mag[0]) * _magScaleX; // typecast and scale to values
     *hy = ((float) mag[1]) * _magScaleY;
     *hz = ((float) mag[2]) * _magScaleZ;
+
+    if (_tm_loaded) adjustMagData(hx, hy, hz);
 }
+
+/* Adjust magnetometer data if biases are loaded */
+void MPU9250::adjustMagData(float* hx, float* hy, float* hz) {
+	    float temp[3];
+        float result[3] = {0, 0, 0};
+
+        temp[0] = *hx - mag_bias[0];
+        temp[1] = *hy - mag_bias[1];
+        temp[2] = *hz - mag_bias[2];
+        for (int i=0; i<3; ++i)
+          for (int j=0; j<3; ++j)
+            result[i] += mag_tm[i*3+j] * temp[j];
+        if (!_tm_scaler) {
+            mag_scaler = sqrt(result[0]*result[0] + result[1]*result[1] + result[2]*result[2]);
+            _tm_scaler = true;
+        }
+        float c = mag_scaler / sqrt(result[0]*result[0] + result[1]*result[1] + result[2]*result[2]);
+        *hx = result[0]*c;
+        *hy = result[1]*c;
+        *hz = result[2]*c;
+}
+
 
 /* get temperature data given pointer to store the value, return data as counts */
 void MPU9250::getTempCounts(int16_t* t){
@@ -744,23 +837,33 @@ void MPU9250::getMotion6Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* g
     int16_t axx, ayy, azz, gxx, gyy, gzz;
     _useSPIHS = true; // use the high speed SPI for data readout
 
-    readRegisters(ACCEL_OUT, sizeof(buff), &buff[0]); // grab the data from the MPU9250
+    if ( _test_mode ) {
+        *ax = _test_data[0];
+        *ay = _test_data[1];
+        *az = _test_data[2];
+        *gx = _test_data[3];
+        *gy = _test_data[4];
+        *gz = _test_data[5];
+    }
+    else {
+        readRegisters(ACCEL_OUT, sizeof(buff), &buff[0]); // grab the data from the MPU9250
 
-    axx = (((int16_t)buff[0]) << 8) | buff[1];  // combine into 16 bit values
-    ayy = (((int16_t)buff[2]) << 8) | buff[3];
-    azz = (((int16_t)buff[4]) << 8) | buff[5];
+        axx = (((int16_t)buff[0]) << 8) | buff[1];  // combine into 16 bit values
+        ayy = (((int16_t)buff[2]) << 8) | buff[3];
+        azz = (((int16_t)buff[4]) << 8) | buff[5];
 
-    gxx = (((int16_t)buff[8]) << 8) | buff[9];
-    gyy = (((int16_t)buff[10]) << 8) | buff[11];
-    gzz = (((int16_t)buff[12]) << 8) | buff[13];
+        gxx = (((int16_t)buff[8]) << 8) | buff[9];
+        gyy = (((int16_t)buff[10]) << 8) | buff[11];
+        gzz = (((int16_t)buff[12]) << 8) | buff[13];
 
-    *ax = tX[0]*axx + tX[1]*ayy + tX[2]*azz; // transform axes
-    *ay = tY[0]*axx + tY[1]*ayy + tY[2]*azz;
-    *az = tZ[0]*axx + tZ[1]*ayy + tZ[2]*azz;
+        *ax = tM[0][0]*axx + tM[0][1]*ayy + tM[0][2]*azz; // transform axes
+        *ay = tM[1][0]*axx + tM[1][1]*ayy + tM[1][2]*azz;
+        *az = tM[2][0]*axx + tM[2][1]*ayy + tM[2][2]*azz;
 
-    *gx = tX[0]*gxx + tX[1]*gyy + tX[2]*gzz;
-    *gy = tY[0]*gxx + tY[1]*gyy + tY[2]*gzz;
-    *gz = tZ[0]*gxx + tZ[1]*gyy + tZ[2]*gzz;
+        *gx = tM[0][0]*gxx + tM[0][1]*gyy + tM[0][2]*gzz; // transform axes
+        *gy = tM[1][0]*gxx + tM[1][1]*gyy + tM[1][2]*gzz;
+        *gz = tM[2][0]*gxx + tM[2][1]*gyy + tM[2][2]*gzz;
+    }
 }
 
 /* get accelerometer and gyro data given pointers to store values */
@@ -797,13 +900,13 @@ void MPU9250::getMotion7Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* g
     gyy = (((int16_t)buff[10]) << 8) | buff[11];
     gzz = (((int16_t)buff[12]) << 8) | buff[13];
 
-    *ax = tX[0]*axx + tX[1]*ayy + tX[2]*azz; // transform axes
-    *ay = tY[0]*axx + tY[1]*ayy + tY[2]*azz;
-    *az = tZ[0]*axx + tZ[1]*ayy + tZ[2]*azz;
+    *ax = tM[0][0]*axx + tM[0][1]*ayy + tM[0][2]*azz; // transform axes
+    *ay = tM[1][0]*axx + tM[1][1]*ayy + tM[1][2]*azz;
+    *az = tM[2][0]*axx + tM[2][1]*ayy + tM[2][2]*azz;
 
-    *gx = tX[0]*gxx + tX[1]*gyy + tX[2]*gzz;
-    *gy = tY[0]*gxx + tY[1]*gyy + tY[2]*gzz;
-    *gz = tZ[0]*gxx + tZ[1]*gyy + tZ[2]*gzz;
+    *gx = tM[0][0]*gxx + tM[0][1]*gyy + tM[0][2]*gzz; // transform axes
+    *gy = tM[1][0]*gxx + tM[1][1]*gyy + tM[1][2]*gzz;
+    *gz = tM[2][0]*gxx + tM[2][1]*gyy + tM[2][2]*gzz;
 }
 
 /* get accelerometer, gyro, and temperature data given pointers to store values */
@@ -831,27 +934,39 @@ void MPU9250::getMotion9Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* g
     int16_t axx, ayy, azz, gxx, gyy, gzz;
     _useSPIHS = true; // use the high speed SPI for data readout
 
-    readRegisters(ACCEL_OUT, sizeof(buff), &buff[0]); // grab the data from the MPU9250
+        if ( _test_mode ) {
+        *ax = _test_data[0];
+        *ay = _test_data[1];
+        *az = _test_data[2];
+        *gx = _test_data[3];
+        *gy = _test_data[4];
+        *gz = _test_data[5];
+        *hx = _test_data[6];
+        *hy = _test_data[7];
+        *hz = _test_data[8];    }
+    else {
+        readRegisters(ACCEL_OUT, sizeof(buff), &buff[0]); // grab the data from the MPU9250
 
-    axx = (((int16_t)buff[0]) << 8) | buff[1];  // combine into 16 bit values
-    ayy = (((int16_t)buff[2]) << 8) | buff[3];
-    azz = (((int16_t)buff[4]) << 8) | buff[5];
+        axx = (((int16_t)buff[0]) << 8) | buff[1];  // combine into 16 bit values
+        ayy = (((int16_t)buff[2]) << 8) | buff[3];
+        azz = (((int16_t)buff[4]) << 8) | buff[5];
 
-    gxx = (((int16_t)buff[8]) << 8) | buff[9];
-    gyy = (((int16_t)buff[10]) << 8) | buff[11];
-    gzz = (((int16_t)buff[12]) << 8) | buff[13];
+        gxx = (((int16_t)buff[8]) << 8) | buff[9];
+        gyy = (((int16_t)buff[10]) << 8) | buff[11];
+        gzz = (((int16_t)buff[12]) << 8) | buff[13];
 
-    *hx = (((int16_t)buff[15]) << 8) | buff[14];
-    *hy = (((int16_t)buff[17]) << 8) | buff[16];
-    *hz = (((int16_t)buff[19]) << 8) | buff[18];
+        *hx = (((int16_t)buff[15]) << 8) | buff[14];
+        *hy = (((int16_t)buff[17]) << 8) | buff[16];
+        *hz = (((int16_t)buff[19]) << 8) | buff[18];
 
-    *ax = tX[0]*axx + tX[1]*ayy + tX[2]*azz; // transform axes
-    *ay = tY[0]*axx + tY[1]*ayy + tY[2]*azz;
-    *az = tZ[0]*axx + tZ[1]*ayy + tZ[2]*azz;
+        *ax = tM[0][0]*axx + tM[0][1]*ayy + tM[0][2]*azz; // transform axes
+        *ay = tM[1][0]*axx + tM[1][1]*ayy + tM[1][2]*azz;
+        *az = tM[2][0]*axx + tM[2][1]*ayy + tM[2][2]*azz;
 
-    *gx = tX[0]*gxx + tX[1]*gyy + tX[2]*gzz;
-    *gy = tY[0]*gxx + tY[1]*gyy + tY[2]*gzz;
-    *gz = tZ[0]*gxx + tZ[1]*gyy + tZ[2]*gzz;
+        *gx = tM[0][0]*gxx + tM[0][1]*gyy + tM[0][2]*gzz; // transform axes
+        *gy = tM[1][0]*gxx + tM[1][1]*gyy + tM[1][2]*gzz;
+        *gz = tM[2][0]*gxx + tM[2][1]*gyy + tM[2][2]*gzz;
+    }
 }
 
 /* get accelerometer, gyro, and magnetometer data given pointers to store values */
@@ -870,9 +985,11 @@ void MPU9250::getMotion9(float* ax, float* ay, float* az, float* gx, float* gy, 
     *gy = ((float) gyro[1]) * _gyroScale;
     *gz = ((float) gyro[2]) * _gyroScale;
 
-    *hx = ((float) mag[0]) * _magScaleX;
+    *hx = ((float) mag[0]) * _magScaleX; // typecast and scale to values
     *hy = ((float) mag[1]) * _magScaleY;
     *hz = ((float) mag[2]) * _magScaleZ;
+		
+    if (_tm_loaded) adjustMagData(hx, hy, hz);
 }
 
 /* get accelerometer, magnetometer, and temperature data given pointers to store values, return data as counts */
@@ -897,13 +1014,13 @@ void MPU9250::getMotion10Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* 
     *hy = (((int16_t)buff[17]) << 8) | buff[16];
     *hz = (((int16_t)buff[19]) << 8) | buff[18];
 
-    *ax = tX[0]*axx + tX[1]*ayy + tX[2]*azz; // transform axes
-    *ay = tY[0]*axx + tY[1]*ayy + tY[2]*azz;
-    *az = tZ[0]*axx + tZ[1]*ayy + tZ[2]*azz;
+    *ax = tM[0][0]*axx + tM[0][1]*ayy + tM[0][2]*azz; // transform axes
+    *ay = tM[1][0]*axx + tM[1][1]*ayy + tM[1][2]*azz;
+    *az = tM[2][0]*axx + tM[2][1]*ayy + tM[2][2]*azz;
 
-    *gx = tX[0]*gxx + tX[1]*gyy + tX[2]*gzz;
-    *gy = tY[0]*gxx + tY[1]*gyy + tY[2]*gzz;
-    *gz = tZ[0]*gxx + tZ[1]*gyy + tZ[2]*gzz;
+    *gx = tM[0][0]*gxx + tM[0][1]*gyy + tM[0][2]*gzz; // transform axes
+    *gy = tM[1][0]*gxx + tM[1][1]*gyy + tM[1][2]*gzz;
+    *gz = tM[2][0]*gxx + tM[2][1]*gyy + tM[2][2]*gzz;
 }
 
 void MPU9250::getMotion10(float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* hx, float* hy, float* hz, float* t){
@@ -922,9 +1039,11 @@ void MPU9250::getMotion10(float* ax, float* ay, float* az, float* gx, float* gy,
     *gy = ((float) gyro[1]) * _gyroScale;
     *gz = ((float) gyro[2]) * _gyroScale;
 
-    *hx = ((float) mag[0]) * _magScaleX;
+    *hx = ((float) mag[0]) * _magScaleX; // typecast and scale to values
     *hy = ((float) mag[1]) * _magScaleY;
     *hz = ((float) mag[2]) * _magScaleZ;
+		
+    if (_tm_loaded) adjustMagData(hx, hy, hz);
 
     *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset;
 }
@@ -1260,6 +1379,351 @@ uint8_t MPU9250::whoAmIAK8963(){
 
     // return the register value
     return buff[0];
+}
+
+void MPU9250::MadgwickQuaternionUpdateIMU(float deltat) {
+    float ax,  ay,  az,  gx,  gy,  gz;
+    float q0 = q[0], q1 = q[1], q2 = q[2], q3 = q[3];
+    float recipNorm;
+	float s0, s1, s2, s3;
+	float qDot1, qDot2, qDot3, qDot4;
+	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
+
+	// Convert gyroscope degrees/sec to radians/sec
+    _calc_angles = false;
+    getMotion6(&ax, &ay, &az, &gx, &gy, &gz);    
+
+    gx *= _d2r;
+    gy *= _d2r;
+    gz *= _d2r;
+
+    
+	// Rate of change of quaternion from gyroscope
+	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
+	qDot2 = 0.5f * (q0 * gx + q2 * gz - q3 * gy);
+	qDot3 = 0.5f * (q0 * gy - q1 * gz + q3 * gx);
+	qDot4 = 0.5f * (q0 * gz + q1 * gy - q2 * gx);
+
+	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+		// Normalise accelerometer measurement
+		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+		ax *= recipNorm;
+		ay *= recipNorm;
+		az *= recipNorm;
+
+		// Auxiliary variables to avoid repeated arithmetic
+		_2q0 = 2.0f * q0;
+		_2q1 = 2.0f * q1;
+		_2q2 = 2.0f * q2;
+		_2q3 = 2.0f * q3;
+		_4q0 = 4.0f * q0;
+		_4q1 = 4.0f * q1;
+		_4q2 = 4.0f * q2;
+		_8q1 = 8.0f * q1;
+		_8q2 = 8.0f * q2;
+		q0q0 = q0 * q0;
+		q1q1 = q1 * q1;
+		q2q2 = q2 * q2;
+		q3q3 = q3 * q3;
+
+		// Gradient decent algorithm corrective step
+		s0 = _4q0 * q2q2 + _2q2 * ax + _4q0 * q1q1 - _2q1 * ay;
+		s1 = _4q1 * q3q3 - _2q3 * ax + 4.0f * q0q0 * q1 - _2q0 * ay - _4q1 + _8q1 * q1q1 + _8q1 * q2q2 + _4q1 * az;
+		s2 = 4.0f * q0q0 * q2 + _2q0 * ax + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _8q2 * q2q2 + _4q2 * az;
+		s3 = 4.0f * q1q1 * q3 - _2q1 * ax + 4.0f * q2q2 * q3 - _2q2 * ay;
+		recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalize step magnitude
+		s0 *= recipNorm;
+		s1 *= recipNorm;
+		s2 *= recipNorm;
+		s3 *= recipNorm;
+
+		// Apply feedback step
+		qDot1 -= beta * s0;
+		qDot2 -= beta * s1;
+		qDot3 -= beta * s2;
+		qDot4 -= beta * s3;
+	}
+
+	// Integrate rate of change of quaternion to yield quaternion
+	q0 += qDot1 * deltat;
+	q1 += qDot2 * deltat;
+	q2 += qDot3 * deltat;
+	q3 += qDot4 * deltat;
+
+	// Normalise quaternion
+	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	q[0] = q0*recipNorm;
+	q[1] = q1*recipNorm;
+	q[2] = q2*recipNorm;
+	q[3] = q3*recipNorm;
+}
+
+void MPU9250::resetQuaternion(float* src) {
+    for (int i=0; i<4; i++, src++) q[i] = src[i];
+}
+
+void MPU9250::MadgwickQuaternionUpdate(float deltat)
+{
+  float ax,  ay,  az,  gx,  gy,  gz,  mx,  my,  mz;
+  
+
+  // short name local variable for readability
+  float q1 = q[0], q2 = q[1], q3 = q[2], q4 = q[3];
+  float norm;
+  float hx, hy, _2bx, _2bz;
+  float s1, s2, s3, s4;
+  float qDot1, qDot2, qDot3, qDot4;
+
+  // Auxiliary variables to avoid repeated arithmetic
+  float _2q1mx;
+  float _2q1my;
+  float _2q1mz;
+  float _2q2mx;
+  float _4bx;
+  float _4bz;
+  float _2q1 = 2.0f * q1;
+  float _2q2 = 2.0f * q2;
+  float _2q3 = 2.0f * q3;
+  float _2q4 = 2.0f * q4;
+  float _2q1q3 = 2.0f * q1 * q3;
+  float _2q3q4 = 2.0f * q3 * q4;
+  float q1q1 = q1 * q1;
+  float q1q2 = q1 * q2;
+  float q1q3 = q1 * q3;
+  float q1q4 = q1 * q4;
+  float q2q2 = q2 * q2;
+  float q2q3 = q2 * q3;
+  float q2q4 = q2 * q4;
+  float q3q3 = q3 * q3;
+  float q3q4 = q3 * q4;
+  float q4q4 = q4 * q4;
+
+  _calc_angles = false;
+  getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+  
+  // convert gyro angles to radians
+  gx *= _d2r;
+  gy *= _d2r;
+  gz *= _d2r;
+  
+  // Normalise accelerometer measurement
+  norm = ax * ax + ay * ay + az * az;
+  if (norm == 0.0f) return; // handle NaN
+  norm = invSqrt( norm );
+  ax *= norm;
+  ay *= norm;
+  az *= norm;
+
+  // Normalise magnetometer measurement
+  norm = mx * mx + my * my + mz * mz;
+  if (norm == 0.0f) return; // handle NaN
+  norm = invSqrt( norm );
+  mx *= norm;
+  my *= norm;
+  mz *= norm;
+
+  // Reference direction of Earth's magnetic field
+  _2q1mx = 2.0f * q1 * mx;
+  _2q1my = 2.0f * q1 * my;
+  _2q1mz = 2.0f * q1 * mz;
+  _2q2mx = 2.0f * q2 * mx;
+  hx = mx * q1q1 - _2q1my * q4 + _2q1mz * q3 + mx * q2q2 + _2q2 * my * q3 +
+       _2q2 * mz * q4 - mx * q3q3 - mx * q4q4;
+  hy = _2q1mx * q4 + my * q1q1 - _2q1mz * q2 + _2q2mx * q3 - my * q2q2 + my * q3q3 + _2q3 * mz * q4 - my * q4q4;
+  _2bx = sqrt(hx * hx + hy * hy);
+  _2bz = -_2q1mx * q3 + _2q1my * q2 + mz * q1q1 + _2q2mx * q4 - mz * q2q2 + _2q3 * my * q4 - mz * q3q3 + mz * q4q4;
+  _4bx = 2.0f * _2bx;
+  _4bz = 2.0f * _2bz;
+
+  // Gradient decent algorithm corrective step
+  s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - _2bz * q3 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * q4 + _2bz * q2) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * q3 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+  s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + _2bz * q4 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q3 + _2bz * q1) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q4 - _4bz * q2) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+  s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + (-_4bx * q3 - _2bz * q1) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q2 + _2bz * q4) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q1 - _4bz * q3) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+  s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay) + (-_4bx * q4 + _2bz * q2) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * q1 + _2bz * q3) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * q2 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+  norm = invSqrt(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);    // normalise step magnitude
+  s1 *= norm;
+  s2 *= norm;
+  s3 *= norm;
+  s4 *= norm;
+
+  // Compute rate of change of quaternion
+  qDot1 = 0.5f * (-q2 * gx - q3 * gy - q4 * gz) - beta * s1;
+  qDot2 = 0.5f * (q1 * gx + q3 * gz - q4 * gy) - beta * s2;
+  qDot3 = 0.5f * (q1 * gy - q2 * gz + q4 * gx) - beta * s3;
+  qDot4 = 0.5f * (q1 * gz + q2 * gy - q3 * gx) - beta * s4;
+
+  // Integrate to yield quaternion
+  q1 += qDot1 * deltat;
+  q2 += qDot2 * deltat;
+  q3 += qDot3 * deltat;
+  q4 += qDot4 * deltat;
+  norm = invSqrt(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);    // normalise quaternion
+  q[0] = q1 * norm;
+  q[1] = q2 * norm;
+  q[2] = q3 * norm;
+  q[3] = q4 * norm;
+}
+
+void MPU9250::MahonyQuaternionUpdate(float deltat)
+{
+    
+  float ax,  ay,  az,  gx,  gy,  gz,  mx,  my,  mz;
+  
+
+  // short name local variable for readability
+  float q1 = q[0], q2 = q[1], q3 = q[2], q4 = q[3];
+  float norm;
+  float hx, hy, bx, bz;
+  float vx, vy, vz, wx, wy, wz;
+  float ex, ey, ez;
+  float pa, pb, pc;
+
+  // Auxiliary variables to avoid repeated arithmetic
+  float q1q1 = q1 * q1;
+  float q1q2 = q1 * q2;
+  float q1q3 = q1 * q3;
+  float q1q4 = q1 * q4;
+  float q2q2 = q2 * q2;
+  float q2q3 = q2 * q3;
+  float q2q4 = q2 * q4;
+  float q3q3 = q3 * q3;
+  float q3q4 = q3 * q4;
+  float q4q4 = q4 * q4;
+
+  _calc_angles = false;
+  getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+  
+  // convert gyro angles to radians
+  gx *= _d2r;
+  gy *= _d2r;
+  gz *= _d2r;
+  
+  // Normalise accelerometer measurement
+  norm = sqrt(ax * ax + ay * ay + az * az);
+  if (norm == 0.0f) return; // Handle NaN
+  norm = 1.0f / norm;       // Use reciprocal for division
+  ax *= norm;
+  ay *= norm;
+  az *= norm;
+
+  // Normalise magnetometer measurement
+  norm = sqrt(mx * mx + my * my + mz * mz);
+  if (norm == 0.0f) return; // Handle NaN
+  norm = 1.0f / norm;       // Use reciprocal for division
+  mx *= norm;
+  my *= norm;
+  mz *= norm;
+
+  // Reference direction of Earth's magnetic field
+  hx = 2.0f * mx * (0.5f - q3q3 - q4q4) + 2.0f * my * (q2q3 - q1q4) + 2.0f * mz * (q2q4 + q1q3);
+  hy = 2.0f * mx * (q2q3 + q1q4) + 2.0f * my * (0.5f - q2q2 - q4q4) + 2.0f * mz * (q3q4 - q1q2);
+  bx = sqrt((hx * hx) + (hy * hy));
+  bz = 2.0f * mx * (q2q4 - q1q3) + 2.0f * my * (q3q4 + q1q2) + 2.0f * mz * (0.5f - q2q2 - q3q3);
+
+  // Estimated direction of gravity and magnetic field
+  vx = 2.0f * (q2q4 - q1q3);
+  vy = 2.0f * (q1q2 + q3q4);
+  vz = q1q1 - q2q2 - q3q3 + q4q4;
+  wx = 2.0f * bx * (0.5f - q3q3 - q4q4) + 2.0f * bz * (q2q4 - q1q3);
+  wy = 2.0f * bx * (q2q3 - q1q4) + 2.0f * bz * (q1q2 + q3q4);
+  wz = 2.0f * bx * (q1q3 + q2q4) + 2.0f * bz * (0.5f - q2q2 - q3q3);
+
+  // Error is cross product between estimated direction and measured direction of gravity
+  ex = (ay * vz - az * vy) + (my * wz - mz * wy);
+  ey = (az * vx - ax * vz) + (mz * wx - mx * wz);
+  ez = (ax * vy - ay * vx) + (mx * wy - my * wx);
+  if (Ki > 0.0f)
+  {
+    eInt[0] += ex;      // accumulate integral error
+    eInt[1] += ey;
+    eInt[2] += ez;
+  }
+  else
+  {
+    eInt[0] = 0.0f;     // prevent integral wind up
+    eInt[1] = 0.0f;
+    eInt[2] = 0.0f;
+  }
+
+  // Apply feedback terms
+  gx = gx + Kp * ex + Ki * eInt[0];
+  gy = gy + Kp * ey + Ki * eInt[1];
+  gz = gz + Kp * ez + Ki * eInt[2];
+ 
+  // Integrate rate of change of quaternion
+  pa = q2;
+  pb = q3;
+  pc = q4;
+  q1 = q1 + (-q2 * gx - q3 * gy - q4 * gz) * (0.5f * deltat);
+  q2 = pa + (q1 * gx + pb * gz - pc * gy) * (0.5f * deltat);
+  q3 = pb + (q1 * gy - pa * gz + pc * gx) * (0.5f * deltat);
+  q4 = pc + (q1 * gz + pa * gy - pb * gx) * (0.5f * deltat);
+
+  // Normalise quaternion
+  norm = sqrt(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);
+  norm = 1.0f / norm;
+  q[0] = q1 * norm;
+  q[1] = q2 * norm;
+  q[2] = q3 * norm;
+  q[3] = q4 * norm;
+}
+
+float  MPU9250::getPitch() {
+    if (!_calc_angles) calculateAngles();
+    return pitch;
+}
+
+float  MPU9250::getRoll() {
+    if (!_calc_angles) calculateAngles();
+    return roll;
+}
+
+float  MPU9250::getYaw() {
+    if (!_calc_angles) calculateAngles();
+    return yaw;
+}
+
+void  MPU9250::calculateAngles() {
+    // Define output variables from updated quaternion---these are Tait-Bryan angles, commonly used in aircraft orientation.
+    // In this coordinate system, the positive z-axis is down toward Earth.
+    // Yaw is the angle between Sensor x-axis and Earth magnetic North (or true North if corrected for local declination, looking down on the sensor positive yaw is counterclockwise.
+    // Pitch is angle between sensor x-axis and Earth ground plane, toward the Earth is positive, up toward the sky is negative.
+    // Roll is angle between sensor y-axis and Earth ground plane, y-axis up is positive roll.
+    // These arise from the definition of the homogeneous rotation matrix constructed from quaternions.
+    // Tait-Bryan angles as well as Euler angles are non-commutative; that is, the get the correct orientation the rotations must be
+    // applied in the correct order which for this configuration is yaw, pitch, and then roll.
+    // For more see http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles which has additional links.
+    yaw   = atan2(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);
+    pitch = -asin(2.0f * (q[1] * q[3] - q[0] * q[2]));
+    roll  = atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
+    pitch *= 180.0f / PI;
+    yaw   *= 180.0f / PI;
+    yaw   += mag_declination; // Declination at current location
+    roll  *= 180.0f / PI;
+    _calc_angles = true;
+}
+
+//-------------------------------------------------------------------------------------------
+// Fast inverse square-root
+// See: http://en.wikipedia.org/wiki/Fast_inverse_square_root
+
+float MPU9250::invSqrt(float x) {
+	float halfx = 0.5f * x;
+	float y = x;
+	long i = *(long*)&y;
+	i = 0x5f3759df - (i>>1);
+	y = *(float*)&i;
+	y = y * (1.5f - (halfx * y * y));
+	y = y * (1.5f - (halfx * y * y));
+	return y;
+}
+
+void MPU9250::setTestData( float* d ) {
+    if (_test_mode) {
+    	for (int i=0; i<9; i++) _test_data[i] = *d++;
+    }
 }
 
 #endif

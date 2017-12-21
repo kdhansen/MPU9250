@@ -1,6 +1,9 @@
 # MPU9250
 Library for communicating with the [MPU-9250](https://www.invensense.com/products/motion-tracking/9-axis/mpu-9250/) nine-axis Inertial Measurement Unit (IMU) using Teensy 3.x and Teensy LC devices.
 
+# Changes from the source library
+List of updates to this library performed by arkhipenko is at the end of this README file
+
 # Description
 The InvenSense MPU-9250 is a System in Package (SiP) that combines two chips: the MPU-6500 three-axis gyroscope and three-axis accelerometer; and the AK8963 three-axis magnetometer. The MPU-9250 supports I2C, up to 400 kHz, and SPI communication, up to 1 MHz for register setup and 20 MHz for data reading. The following selectable full scale sensor ranges are available:
 
@@ -372,3 +375,49 @@ Timing data was collected for the *getMotion10* function on all supported Teensy
 | CPU setting | 96 MHz     | 96 MHz         | 120 MHz    | 180 MHz    | 48 MHz    |
 | I2C         | 765 us     | 682 us         | 667 us     | 638 us     | 980 us    |
 | SPI         | 96 us      | 52 us          | 22 us      | 19 us      | 205 us    |
+
+# Additional Changes by arkhipenko
+## Regional magenetic declination
+
+Added *float regionalMagDeclination =0.* as a last argument of the *begin* method. This allows to specify magnetic declination for a specific region.
+
+## Calibration
+A set of methods to provide adjustment offsets for accelerometer and gyros as well as magnetic biases and calibration data.
+Also supported update of the axis orientation matrix.
+Calibration sketch and examples are provided.
+
+```C++
+      void setOffsets(int16_t* offsets);
+      void getOffsets(int16_t* offsets);
+      void setMagTMandBias(float* matrix, float* bias);
+      void setTransformMatrix(int16_t **tm);
+ ```
+ 
+ #3 Madgwick and Mahony Quaternion filters
+ Update of Quaternions based on Madgwick and Mahony algorythms is supported. Data is read from the MPU and used in calculations immediately.
+ No need to store the values inside your sketch.
+ Adjustment of *beta* is supported, as well as retrieval of the Quaternion itself for debug purposes. 
+ Calculation of Euler angles is supported. 
+ 
+ ```C++
+        void MadgwickQuaternionUpdate(float deltat);
+        void MadgwickQuaternionUpdateIMU(float deltat);
+        void MahonyQuaternionUpdate(float deltat);
+        const float *getQuaternion() { return q; }
+        void setBeta(float b) { beta = b; }
+        void resetQuaternion(float *src);
+        float getRoll();
+        float getPitch();
+        float getYaw();
+```
+
+## Debugging and data availability
+Data availability by reading the interrupt flag.
+Providing your own accel/gyro test data for debugging and testing purposes.
+
+```C++
+        bool  isAccelGyroDataReady();
+        void  setTestMode(bool mode=true) { _test_mode=mode; }
+        void  setTestData(float* d);
+```
+ 
