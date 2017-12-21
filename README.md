@@ -393,7 +393,7 @@ Calibration sketch and examples are provided.
       void setTransformMatrix(int16_t **tm);
  ```
  
- #3 Madgwick and Mahony Quaternion filters
+ ## Madgwick and Mahony Quaternion filters
  Update of Quaternions based on Madgwick and Mahony algorythms is supported. Data is read from the MPU and used in calculations immediately.
  No need to store the values inside your sketch.
  Adjustment of *beta* is supported, as well as retrieval of the Quaternion itself for debug purposes. 
